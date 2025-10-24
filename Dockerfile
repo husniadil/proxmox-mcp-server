@@ -26,13 +26,18 @@ RUN pip install --no-cache-dir uv
 # Copy MCP server script
 COPY proxmox_mcp.py .
 
-# Expose HTTP port
-EXPOSE 8000
+# Default port (can be overridden via SERVER_PORT env var at runtime)
+ENV SERVER_PORT=8000
+
+# Expose HTTP port (uses SERVER_PORT env var)
+EXPOSE ${SERVER_PORT}
 
 # Health check endpoint (HTTP transport provides /health)
+# Uses SERVER_PORT env var for dynamic port
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
+    CMD python -c "import os, urllib.request; urllib.request.urlopen(f'http://localhost:{os.getenv(\"SERVER_PORT\", \"8000\")}/health')" || exit 1
 
 # Run MCP server in HTTP mode (FastMCP 2.x Streamable HTTP transport)
 # WARNING: This mode has NO built-in authentication!
-CMD ["uv", "run", "proxmox_mcp.py", "--http", "--port", "8000"]
+# Port is determined by SERVER_PORT env var (default: 8000)
+CMD ["sh", "-c", "uv run proxmox_mcp.py --http --port ${SERVER_PORT}"]
