@@ -32,12 +32,9 @@ ENV SERVER_PORT=8000
 # Expose HTTP port (uses SERVER_PORT env var)
 EXPOSE ${SERVER_PORT}
 
-# Health check disabled by default for better compatibility
-# The /health endpoint is still available at http://localhost:${SERVER_PORT}/health
-# You can manually check health or add external monitoring if needed
-# Uncomment below to enable built-in Docker healthcheck:
-# HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-#     CMD sh -c 'python -c "import urllib.request; urllib.request.urlopen(\"http://localhost:${SERVER_PORT:-8000}/health\")" || exit 1'
+# Health check - monitors container health via /health endpoint
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD sh -c 'python -c "import urllib.request; urllib.request.urlopen(\"http://localhost:${SERVER_PORT:-8000}/health\")" || exit 1'
 
 # Run MCP server in HTTP mode (FastMCP 2.x Streamable HTTP transport)
 # WARNING: This mode has NO built-in authentication!

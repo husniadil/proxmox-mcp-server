@@ -23,11 +23,12 @@ services:
     # See README.md for detailed security guidance.
     # ========================================================================
 
-    # Port mapping - SECURITY: Bind to localhost only for safety
+    # Port mapping - Network accessible for production deployment
     # Uses SERVER_PORT environment variable (default: 8000)
+    # ⚠️ WARNING: HTTP endpoint has NO authentication - use firewall/VPN/reverse proxy!
     ports:
-      - "127.0.0.1:${SERVER_PORT:-8000}:${SERVER_PORT:-8000}"  # Localhost only (recommended)
-      # - "${SERVER_PORT:-8000}:${SERVER_PORT:-8000}"           # WARNING: Exposes to all interfaces (UNSAFE)
+      - "${SERVER_PORT:-8000}:${SERVER_PORT:-8000}"  # Network accessible (for Portainer/production)
+      # - "127.0.0.1:${SERVER_PORT:-8000}:${SERVER_PORT:-8000}"  # Uncomment for localhost-only (local dev)
 
     # Environment variables (alternative to .env file)
     # Uncomment and configure if not using .env file
@@ -68,14 +69,13 @@ services:
     #       cpus: '0.5'
     #       memory: 256M
 
-    # Health check (disabled by default for better compatibility)
-    # Uncomment to enable Docker Compose healthcheck monitoring
-    # healthcheck:
-    #   test: ["CMD", "sh", "-c", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:${SERVER_PORT:-8000}/health')\""]
-    #   interval: 30s
-    #   timeout: 10s
-    #   retries: 3
-    #   start_period: 10s
+    # Health check - monitors container health status
+    healthcheck:
+      test: ["CMD", "sh", "-c", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:${SERVER_PORT:-8000}/health')\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
 
 # Docker secrets (optional - for production)
 # secrets:
