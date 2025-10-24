@@ -141,6 +141,77 @@ The SSH connection is established during server lifecycle (`lifespan` context ma
 
 All command outputs are truncated to `CHARACTER_LIMIT` characters (default: 25000) to prevent token exhaustion. See `truncate_output()` function (lines 329-339).
 
+### HTTP Mode & Health Check
+
+The server supports two transport modes:
+
+1. **Stdio Mode (Default)**: For Claude Desktop integration, communicates via stdin/stdout
+2. **HTTP Mode**: For remote access and web integrations, runs as HTTP server
+
+**HTTP Mode Usage:**
+
+```bash
+# Start in HTTP mode
+python proxmox_mcp.py --http --host 0.0.0.0 --port 8000
+
+# Or with uv
+uv run proxmox_mcp.py --http --port 8000
+```
+
+**⚠️ SECURITY WARNING - HTTP Mode:**
+
+HTTP mode does **NOT** include any authentication mechanism. The server exposes MCP endpoints without authentication, meaning anyone who can reach the HTTP endpoint can execute commands on your Proxmox infrastructure.
+
+**Security implications:**
+- The HTTP endpoint is completely unauthenticated
+- Server relies on .env file credentials for Proxmox SSH access only
+- No built-in access control or rate limiting
+- Anyone with network access can use all MCP tools
+
+**Required security measures:**
+- **NEVER** expose HTTP endpoint directly to the internet
+- Bind to localhost (127.0.0.1) or use firewall rules to restrict access
+- Deploy behind reverse proxy with authentication (nginx, Caddy, etc.)
+- Use VPN or SSH tunneling for remote access
+- Implement network-level security (VPC, security groups, etc.)
+- Monitor access logs regularly
+
+**Recommended deployment patterns:**
+1. **Local only**: `--host 127.0.0.1` (accessible only from same machine)
+2. **Internal network**: Use firewall to restrict to trusted IP ranges
+3. **VPN access**: Expose only through VPN tunnel
+4. **Reverse proxy**: Deploy nginx/Caddy with HTTP Basic Auth or OAuth2
+5. **SSH tunnel**: `ssh -L 8000:localhost:8000 user@server` for remote access
+
+**Health Check Endpoint:**
+
+When running in HTTP mode, a `/health` endpoint is available for monitoring:
+
+- **URL**: `http://host:port/health`
+- **Method**: GET
+- **Response**: JSON with server status
+
+```json
+{
+  "status": "healthy",
+  "service": "proxmox-mcp-server",
+  "ssh_connected": true
+}
+```
+
+**Implementation Details:**
+
+- Health check implemented as ASGI middleware (lines 1858-1888)
+- Intercepts `/health` requests before they reach MCP app
+- Checks SSH connection status by verifying `ssh_manager._client` is not None
+- All other requests pass through to FastMCP app
+- The middleware wraps `mcp.streamable_http_app()` in HTTP mode
+
+**Endpoints:**
+
+- `/health` - Health check (returns JSON status)
+- `/mcp` - MCP protocol endpoint (for MCP clients)
+
 ## File Transfer Architecture
 
 ### Overview

@@ -1,17 +1,17 @@
 {
   "mcpServers": {
-    "proxmox": {
-      "command": "python",
-      "args": ["/full/path/to/proxmox_mcp.py"],
+    "proxmox-mcp-server": {
+      "command": "uv",
+      "args": ["run", "/full/path/to/proxmox_mcp.py"],
       "env": {
-        "_comment_critical": "REQUIRED: You MUST set I_ACCEPT_RISKS to 'true' to use this software. See README DISCLAIMER section.",
         "I_ACCEPT_RISKS": "false",
         "HOST": "192.168.1.100",
+        "SSH_PORT": "22",
         "SSH_USERNAME": "root",
         "SSH_PASSWORD": "your_password",
-        "SSH_PORT": "22",
-        "_comment_host_exec": "Set ENABLE_HOST_EXEC to 'true' to enable host command execution (DISABLED by default for security)",
-        "ENABLE_HOST_EXEC": "false"
+        "ENABLE_HOST_EXEC": "false",
+        "CHARACTER_LIMIT": "25000",
+        "MAX_FILE_SIZE": "10485760"
       }
     }
   }

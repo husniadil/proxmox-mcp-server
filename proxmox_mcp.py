@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 # /// script
-# requires-python = ">=3.8"
+# requires-python = ">=3.10"
 # dependencies = [
 #     "mcp>=1.0.0",
-#     "fastmcp>=2.0.0",
-#     "paramiko>=3.4.0",
-#     "pydantic>=2.0.0",
-#     "python-dotenv>=1.0.0",
+#     "fastmcp>=2.12.5",
+#     "paramiko>=4.0.0",
+#     "pydantic>=2.12.3",
+#     "python-dotenv>=1.1.1",
+#     "uvicorn>=0.38.0",
 # ]
 # ///
 """
@@ -662,6 +663,7 @@ def validate_permissions(perms: str) -> Tuple[bool, Optional[str]]:
 # Global SSH connection manager and configuration
 ssh_manager: Optional[SSHConnectionManager] = None
 character_limit: int = DEFAULT_CHARACTER_LIMIT
+mcp_app = None  # ASGI app for HTTP mode (set during startup)
 
 
 @asynccontextmanager
@@ -1850,9 +1852,90 @@ async def proxmox_upload_file_to_host(
 
 
 # ============================================================================
+# Health Check Middleware for HTTP Mode
+# ============================================================================
+
+
+async def health_check_middleware(scope, receive, send):
+    """ASGI middleware that adds /health endpoint for HTTP mode
+
+    This middleware intercepts requests to /health and returns a simple
+    health check response. All other requests are passed to the MCP app.
+    """
+    if scope["type"] == "http" and scope["path"] == "/health":
+        # Return health check response
+        health_response = {
+            "status": "healthy",
+            "service": "proxmox-mcp-server",
+            "ssh_connected": ssh_manager is not None and ssh_manager._client is not None,
+        }
+
+        response_body = json.dumps(health_response).encode("utf-8")
+
+        await send({
+            "type": "http.response.start",
+            "status": 200,
+            "headers": [
+                [b"content-type", b"application/json"],
+                [b"content-length", str(len(response_body)).encode()],
+            ],
+        })
+        await send({
+            "type": "http.response.body",
+            "body": response_body,
+        })
+    else:
+        # Pass through to MCP app
+        await mcp_app(scope, receive, send)
+
+
+# ============================================================================
 # Main Entry Point
 # ============================================================================
 
 if __name__ == "__main__":
-    # Run the MCP server
-    mcp.run()
+    import sys
+
+    # Check for HTTP/SSE mode flag (HTTP is recommended in FastMCP 2.x)
+    if "--http" in sys.argv or "--sse" in sys.argv:
+        # Extract port from command line or use default
+        port = 8000
+        host = "0.0.0.0"  # Listen on all interfaces for Docker
+
+        for i, arg in enumerate(sys.argv):
+            if arg == "--port" and i + 1 < len(sys.argv):
+                port = int(sys.argv[i + 1])
+            elif arg == "--host" and i + 1 < len(sys.argv):
+                host = sys.argv[i + 1]
+
+        # Use uvicorn to run HTTP transport with custom host/port
+        # This is the recommended approach for FastMCP 2.x web deployment
+        print(f"Starting Proxmox MCP Server in HTTP mode on {host}:{port}")
+        print(f"HTTP endpoint: http://{host}:{port}/mcp")
+        print(f"Health check: http://{host}:{port}/health")
+        print("")
+        print("⚠️  SECURITY WARNING ⚠️")
+        print("HTTP mode has NO authentication mechanism!")
+        print("Anyone with network access to this endpoint can control your Proxmox infrastructure.")
+        print("Recommended: Use firewall rules, VPN, or reverse proxy with authentication.")
+        print("NEVER expose this endpoint directly to the internet!")
+        print("")
+
+        try:
+            import uvicorn
+            # Get ASGI app from FastMCP for HTTP transport
+            # mcp_app is already declared as module-level variable
+            mcp_app = mcp.streamable_http_app()
+            # Wrap with health check middleware
+            uvicorn.run(health_check_middleware, host=host, port=port)
+        except ImportError:
+            print("ERROR: uvicorn is required for HTTP mode")
+            print("Install with: pip install uvicorn")
+            sys.exit(1)
+        except AttributeError:
+            # Fallback: try using mcp.run() if streamable_http_app() not available
+            print("INFO: Using fallback mcp.run() method")
+            mcp.run()
+    else:
+        # Run in stdio mode (default for Claude Desktop)
+        mcp.run()

@@ -1,0 +1,90 @@
+services:
+  proxmox-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: proxmox-mcp-server
+
+    # ========================================================================
+    # ⚠️ SECURITY WARNING - HTTP MODE REQUIRES AUTHENTICATION LAYER
+    # ========================================================================
+    # The HTTP endpoint exposed below has NO authentication mechanism.
+    # Anyone with network access can control your Proxmox infrastructure!
+    #
+    # RECOMMENDED SECURITY MEASURES:
+    # 1. Localhost only:     "127.0.0.1:8000:8000" (default below)
+    # 2. Use reverse proxy:  Deploy nginx/Caddy with HTTP Basic Auth or OAuth2
+    # 3. Use VPN:            Expose only through VPN tunnel
+    # 4. Use SSH tunnel:     ssh -L 8000:localhost:8000 user@server
+    # 5. Firewall rules:     Restrict access to trusted IP ranges only
+    # 6. Internal network:   Use Docker internal network (see networks section)
+    #
+    # NEVER use "0.0.0.0:8000:8000" in production without authentication!
+    # See README.md for detailed security guidance.
+    # ========================================================================
+
+    # Port mapping - SECURITY: Bind to localhost only for safety
+    ports:
+      - "127.0.0.1:8000:8000"  # Localhost only (recommended)
+      # - "8000:8000"           # WARNING: Exposes to all interfaces (UNSAFE)
+
+    # Environment variables (alternative to .env file)
+    # Uncomment and configure if not using .env file
+    # environment:
+    #   - I_ACCEPT_RISKS=true
+    #   - HOST=your-proxmox-host
+    #   - SSH_PORT=22
+    #   - SSH_USERNAME=root
+    #   - SSH_PASSWORD=your-password
+    #   - ENABLE_HOST_EXEC=false
+    #   - CHARACTER_LIMIT=25000
+    #   - MAX_FILE_SIZE=10485760
+
+    # Load from .env file (recommended for development)
+    env_file:
+      - .env
+
+    # Optional: Use Docker secrets for production
+    # secrets:
+    #   - proxmox_ssh_password
+    #   - proxmox_ssh_key
+
+    # Restart policy
+    restart: unless-stopped
+
+    # Networks
+    networks:
+      - proxmox-mcp-network
+
+    # Resource limits (optional)
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: '1.0'
+    #       memory: 512M
+    #     reservations:
+    #       cpus: '0.5'
+    #       memory: 256M
+
+    # Health check
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+# Docker secrets (optional - for production)
+# secrets:
+#   proxmox_ssh_password:
+#     file: ./secrets/ssh_password.txt
+#   proxmox_ssh_key:
+#     file: ./secrets/id_rsa
+
+networks:
+  proxmox-mcp-network:
+    driver: bridge
+    # SECURITY RECOMMENDATION: Use internal network to prevent external access
+    # Uncomment 'internal: true' to isolate this service from external networks
+    # You'll need a reverse proxy in the same network to access it
+    # internal: true

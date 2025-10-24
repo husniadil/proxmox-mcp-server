@@ -2,7 +2,7 @@
 
 Control your Proxmox LXC containers directly from Claude AI using natural language.
 
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![PEP 723](https://img.shields.io/badge/PEP-723-green.svg)](https://peps.python.org/pep-0723/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -74,7 +74,7 @@ Claude will execute the commands and show you the results.
 - Proxmox VE with LXC containers
 - SSH access to your Proxmox host
 - Claude Desktop installed
-- Python 3.8 or higher
+- Python 3.10 or higher
 
 ### Installation
 
@@ -113,6 +113,167 @@ nano .env  # Add your Proxmox host details
 # Test it works
 python proxmox_mcp.py
 ```
+
+**Option C: Docker with HTTP Transport**
+
+**SECURITY WARNING:** HTTP mode does NOT include any authentication mechanism. The server relies entirely on your .env file credentials for Proxmox access, but the HTTP endpoint itself is unauthenticated. This means anyone who can reach the HTTP endpoint can execute commands on your Proxmox infrastructure.
+
+**Recommended security measures:**
+- Only expose the server on localhost (127.0.0.1) or trusted networks
+- Use a firewall to restrict access to the HTTP port
+- Consider using a reverse proxy with authentication (nginx, Caddy, etc.)
+- Use VPN or SSH tunneling for remote access
+- Never expose the HTTP endpoint directly to the internet
+- Keep your .env file secure and never commit it to version control
+
+For hosting the MCP server as a web service (using HTTP/Streamable HTTP) instead of a local subprocess:
+
+```bash
+# Clone the repository
+git clone https://github.com/husniadil/proxmox-mcp-server.git
+cd proxmox-mcp-server
+
+# Configure your Proxmox connection
+cp .env.example .env
+nano .env  # Add your Proxmox host details
+
+# Build and run with Docker Compose
+docker-compose up -d
+
+# Check logs
+docker-compose logs -f
+
+# Stop the server
+docker-compose down
+```
+
+Or using Docker directly:
+
+```bash
+# Build the image
+docker build -t proxmox-mcp-server .
+
+# Run the container
+docker run -d \
+  --name proxmox-mcp \
+  -p 8000:8000 \
+  --env-file .env \
+  proxmox-mcp-server
+
+# Check logs
+docker logs -f proxmox-mcp
+
+# Stop the container
+docker stop proxmox-mcp
+docker rm proxmox-mcp
+```
+
+**Important:** Environment variables are passed at runtime (not baked into the image), so the built image is safe to push to Docker registries. Credentials are only loaded when the container runs with `--env-file .env` or via docker-compose.
+
+The server will be available at `http://localhost:8000/mcp` with HTTP transport. This is useful for:
+- Remote access to the MCP server
+- Running in production environments
+- Integration with web applications
+- Deployment in containerized infrastructure
+
+**Note:** FastMCP 2.x uses HTTP transport (Streamable HTTP) instead of the deprecated SSE transport.
+
+### Docker Deployment Details
+
+**Environment Variables:**
+
+You can configure the server using environment variables in your `.env` file or Docker Compose environment section:
+
+```yaml
+environment:
+  - I_ACCEPT_RISKS=true
+  - HOST=192.168.1.100
+  - SSH_USERNAME=root
+  - SSH_PASSWORD=your_password
+  - ENABLE_HOST_EXEC=false
+  - CHARACTER_LIMIT=25000
+  - MAX_FILE_SIZE=10485760
+```
+
+**Using Docker Secrets (Production):**
+
+For better security in production, use Docker secrets:
+
+```bash
+# Create secret files
+echo "your_password" > ./secrets/ssh_password.txt
+
+# Update docker-compose.yml to use secrets
+# See docker-compose.yml for secret configuration examples
+```
+
+**Custom Port:**
+
+To use a different port:
+
+```bash
+# Using Docker
+docker run -d -p 9000:8000 --env-file .env proxmox-mcp-server
+
+# Using Docker Compose (modify docker-compose.yml)
+ports:
+  - "9000:8000"
+```
+
+**Health Check:**
+
+The Docker container includes a health check endpoint at `/health` that returns the server status and SSH connection state:
+
+```bash
+# Check container health
+docker ps  # Look for "(healthy)" status
+
+# Manual health check
+curl http://localhost:8000/health
+```
+
+The health endpoint returns a JSON response:
+
+```json
+{
+  "status": "healthy",
+  "service": "proxmox-mcp-server",
+  "ssh_connected": true
+}
+```
+
+- `status`: Always "healthy" if the server is running
+- `service`: Service identifier
+- `ssh_connected`: `true` if SSH connection to Proxmox is established, `false` otherwise
+
+**Connecting to HTTP Server:**
+
+To connect your application to the HTTP server:
+
+```python
+# Example: Connect to MCP server via HTTP
+import requests
+
+# Health check
+response = requests.get('http://localhost:8000/health')
+print(response.text)
+
+# MCP endpoint (for MCP clients)
+# Use MCP client libraries to connect to http://localhost:8000/mcp
+```
+
+For MCP client connection:
+```python
+from mcp import Client
+
+async with Client("http://localhost:8000/mcp") as client:
+    # Use the client
+    pass
+```
+
+**Note:** HTTP mode (Streamable HTTP) is designed for remote access and web integrations. For local use with Claude Desktop, use the stdio mode (Option A or B).
+
+**IMPORTANT:** The HTTP endpoint has NO authentication. Anyone with network access to the endpoint can control your Proxmox infrastructure. Always use network isolation, firewalls, or reverse proxy authentication.
 
 ### Configuration
 
@@ -767,7 +928,7 @@ After researching the Proxmox API, we found that:
 
 ## Technical Details
 
-- **Language:** Python 3.8+
+- **Language:** Python 3.10+
 - **Framework:** FastMCP (Model Context Protocol)
 - **SSH Library:** Paramiko
 - **Validation:** Pydantic v2
@@ -777,10 +938,14 @@ After researching the Proxmox API, we found that:
 
 ```
 proxmox-mcp-server/
-├── proxmox_mcp.py              # Main MCP server (PEP 723)
-├── .env.example                 # Configuration template
+├── proxmox_mcp.py                      # Main MCP server (PEP 723)
+├── .env.example                        # Configuration template
+├── stack.env                           # Stack/Portainer environment template
 ├── claude_desktop_config.example.json  # Claude Desktop config example
-└── README.md                   # This file
+├── Dockerfile                          # Docker image definition
+├── docker-compose.yml                  # Docker Compose configuration
+├── .dockerignore                       # Docker build exclusions
+└── README.md                           # This file
 ```
 
 ## Contributing
