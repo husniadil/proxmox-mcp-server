@@ -34,8 +34,9 @@ EXPOSE ${SERVER_PORT}
 
 # Health check endpoint (HTTP transport provides /health)
 # Uses SERVER_PORT env var for dynamic port
+# Note: Use shell expansion for better env var access in healthcheck context
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "import os, urllib.request; urllib.request.urlopen(f'http://localhost:{os.getenv(\"SERVER_PORT\", \"8000\")}/health')" || exit 1
+    CMD sh -c 'python -c "import urllib.request; urllib.request.urlopen(\"http://localhost:${SERVER_PORT:-8000}/health\")" || exit 1'
 
 # Run MCP server in HTTP mode (FastMCP 2.x Streamable HTTP transport)
 # WARNING: This mode has NO built-in authentication!
