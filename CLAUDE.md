@@ -36,6 +36,26 @@ cp .env.example .env
 # Then restart Claude Desktop
 ```
 
+### Docker Deployment
+
+For production deployment using Docker/HTTP mode, this project includes comprehensive Docker support:
+
+- Docker Compose configuration for easy deployment
+- HTTP transport mode with health check endpoint
+- Environment variable configuration via `.env` file
+- Security considerations for HTTP mode (unauthenticated endpoint)
+
+**See README.md "Option C: Docker with HTTP Transport" for:**
+- Complete Docker setup instructions
+- Docker Compose usage
+- Environment variable configuration
+- Health check endpoint details
+- Security best practices for HTTP deployment
+- Custom port configuration
+- Production deployment with Docker secrets
+
+**Note:** HTTP mode is designed for production/remote deployments. For local Claude Desktop use, prefer stdio mode (Options A or B).
+
 ## Architecture
 
 ### Single-File MCP Server (PEP 723)
@@ -43,10 +63,11 @@ cp .env.example .env
 This project uses PEP 723 (inline script metadata), meaning all dependencies are declared in the script header (`proxmox_mcp.py`) rather than a separate `requirements.txt`. Dependencies:
 
 - `mcp>=1.0.0` - Model Context Protocol SDK
-- `fastmcp>=2.0.0` - FastMCP framework for building MCP servers
-- `paramiko>=3.4.0` - SSH client library
-- `pydantic>=2.0.0` - Data validation
-- `python-dotenv>=1.0.0` - Environment variable management
+- `fastmcp>=2.12.5` - FastMCP framework for building MCP servers
+- `paramiko>=4.0.0` - SSH client library
+- `pydantic>=2.12.3` - Data validation
+- `python-dotenv>=1.1.1` - Environment variable management
+- `uvicorn>=0.38.0` - ASGI server for HTTP mode
 
 ### Connection Architecture
 
@@ -58,21 +79,23 @@ The SSH connection is established during server lifecycle (`lifespan` context ma
 
 ### Key Components
 
-**Configuration (`ProxmoxConfig`)**: Lines 50-88
+**Configuration (`ProxmoxConfig`)**
 
 - Loads settings from environment variables (.env file)
 - Validates required fields (`HOST`, authentication credentials)
 - Enforces risk acceptance check (`I_ACCEPT_RISKS=true`)
 - Feature flags: `ENABLE_HOST_EXEC` (default: false), `CHARACTER_LIMIT` (default: 25000)
+- Max file size configuration via `MAX_FILE_SIZE` environment variable
 
-**SSH Connection Manager (`SSHConnectionManager`)**: Lines 205-272
+**SSH Connection Manager (`SSHConnectionManager`)**
 
 - Manages Paramiko SSH client lifecycle
 - Supports both password and SSH key authentication
 - Executes commands via SSH and returns (stdout, stderr, exit_code)
-- Connection established in `lifespan` context manager (lines 349-386)
+- Provides SFTP client for file transfers
+- Connection established in `lifespan` context manager
 
-**Input Validation Models**: Lines 93-200
+**Input Validation Models**
 
 - All tool inputs are validated using Pydantic v2 models
 - Strict validation: strip whitespace, forbid extra fields, enforce ranges
@@ -83,63 +106,62 @@ The SSH connection is established during server lifecycle (`lifespan` context ma
 
 ### MCP Tools (10 Total)
 
-1. **proxmox_container_exec_command** (lines 394-483)
+1. **proxmox_container_exec_command**
    - Executes bash commands inside containers via `pct exec <vmid> -- bash -c '<command>'`
    - Handles command escaping for single quotes
    - Returns output in JSON or text format
 
-2. **proxmox_list_containers** (lines 485-551)
+2. **proxmox_list_containers**
    - Runs `pct list` to get all containers
    - Parses output into structured data (vmid, status, name)
 
-3. **proxmox_container_status** (lines 554-615)
+3. **proxmox_container_status**
    - Runs `pct status <vmid>`
    - Returns: running, stopped, or unknown
 
-4. **proxmox_start_container** (lines 618-674)
+4. **proxmox_start_container**
    - Runs `pct start <vmid>`
    - Idempotent (safe to call on already running container)
 
-5. **proxmox_stop_container** (lines 677-733)
+5. **proxmox_stop_container**
    - Runs `pct stop <vmid>`
    - Idempotent (safe to call on already stopped container)
 
-6. **proxmox_host_exec_command** (lines 736-868)
+6. **proxmox_host_exec_command**
    - **DISABLED BY DEFAULT** - requires `ENABLE_HOST_EXEC=true`
    - Executes commands directly on Proxmox host (not in container)
    - Marked as `destructiveHint: True` due to potential infrastructure impact
    - Use for host operations: `pct list`, `pvecm status`, `zpool status`, etc.
 
-7. **proxmox_download_file_from_container** (lines ~1104-1244)
+7. **proxmox_download_file_from_container**
    - Downloads files from containers to local machine
    - Workflow: `pct pull` to host temp → SFTP download → cleanup temp
    - Validates file size against MAX_FILE_SIZE
    - Includes overwrite protection
 
-8. **proxmox_upload_file_to_container** (lines ~1246-1412)
+8. **proxmox_upload_file_to_container**
    - Uploads files from local machine to containers
    - Workflow: SFTP upload to host temp → `pct push` to container → set permissions → cleanup temp
    - Validates file size, permissions, and paths
    - Checks if file exists before overwriting
    - Marked as `destructiveHint: True`
 
-9. **proxmox_download_file_from_host** (lines ~1414-1542)
+9. **proxmox_download_file_from_host**
    - Downloads files directly from Proxmox host
    - **Requires ENABLE_HOST_EXEC=true**
    - Direct SFTP download (no staging needed)
    - Validates file size before transfer
 
-10. **proxmox_upload_file_to_host** (lines ~1544-1693)
-
-- Uploads files directly to Proxmox host
-- **Requires ENABLE_HOST_EXEC=true**
-- Direct SFTP upload with permission setting
-- Marked as `destructiveHint: True`
-- Includes overwrite protection
+10. **proxmox_upload_file_to_host**
+   - Uploads files directly to Proxmox host
+   - **Requires ENABLE_HOST_EXEC=true**
+   - Direct SFTP upload with permission setting
+   - Marked as `destructiveHint: True`
+   - Includes overwrite protection
 
 ### Output Truncation
 
-All command outputs are truncated to `CHARACTER_LIMIT` characters (default: 25000) to prevent token exhaustion. See `truncate_output()` function (lines 329-339).
+All command outputs are truncated to `CHARACTER_LIMIT` characters (default: 25000) to prevent token exhaustion. See `truncate_output()` function in the helper functions section.
 
 ### HTTP Mode & Health Check
 
@@ -201,7 +223,7 @@ When running in HTTP mode, a `/health` endpoint is available for monitoring:
 
 **Implementation Details:**
 
-- Health check implemented as ASGI middleware (lines 1858-1888)
+- Health check implemented as ASGI middleware in the `health_check_middleware` function
 - Intercepts `/health` requests before they reach MCP app
 - Checks SSH connection status by verifying `ssh_manager._client` is not None
 - All other requests pass through to FastMCP app
@@ -240,8 +262,8 @@ File transfers use a two-step process for containers (via temporary staging on h
 **Temp File Management:**
 
 - Temp paths generated via `get_temp_path()` using UUID: `/tmp/proxmox-mcp-{uuid}`
-- Cleanup handled by `SSHConnectionManager.cleanup_remote_file()` (lines 302-313)
-- Try/finally blocks ensure cleanup even on errors (lines 1189-1238, 1364-1406)
+- Cleanup handled by `SSHConnectionManager.cleanup_remote_file()` method
+- Try/finally blocks ensure cleanup even on errors in all file transfer functions
 
 ### Host File Transfer Workflow
 
@@ -264,24 +286,25 @@ File transfers use a two-step process for containers (via temporary staging on h
 
 ### SFTP Integration
 
-**SSHConnectionManager Extensions** (lines 208-337):
+**SSHConnectionManager Extensions:**
 
 - `_sftp: Optional[paramiko.SFTPClient]` - SFTP client instance
 - `get_sftp_client()` - Creates/returns SFTP client (lazy initialization)
 - `download_file(remote_path, local_path)` - SFTP download wrapper
 - `upload_file(local_path, remote_path)` - SFTP upload wrapper
 - `cleanup_remote_file(remote_path)` - Safe file removal (ignores errors)
+- `execute_command(command, timeout)` - Core SSH command execution
 - `disconnect()` - Closes SFTP client before SSH client
 
 ### Security Validations
 
-**Path Validation** (lines 344-364):
+**Path Validation (validate_path function):**
 
 - Checks for empty paths
 - Prevents directory traversal (rejects paths with `..`)
 - Enforces max path length of 4096 characters
 
-**Permission Validation** (lines 374-390):
+**Permission Validation (validate_permissions function):**
 
 - Validates octal format using regex `^[0-7]{3,4}$`
 - Accepts 3 or 4 digit octal strings (e.g., "644", "0755")
@@ -302,7 +325,7 @@ File transfers use a two-step process for containers (via temporary staging on h
 
 ### Configuration
 
-**ProxmoxConfig** (line 66):
+**ProxmoxConfig class:**
 
 ```python
 self.max_file_size = int(os.getenv("MAX_FILE_SIZE", "10485760"))  # 10MB
@@ -325,14 +348,14 @@ escaped_command = command.replace("'", "'\\''")
 pct_command = f"pct exec {vmid} -- bash -c '{escaped_command}'"
 ```
 
-See line 457 in `proxmox_container_exec_command`.
+See the `proxmox_container_exec_command` function implementation.
 
 ### SSH Connection Lifecycle
 
 The SSH connection is managed through FastMCP's `lifespan` context manager:
 
-- Connection established at server startup (line 377)
-- Connection closed at server shutdown (line 385)
+- Connection established at server startup in the `lifespan` function
+- Connection closed at server shutdown
 - Global `ssh_manager` variable provides access throughout tool functions
 
 ### Error Handling Pattern
@@ -380,7 +403,7 @@ Since this is an MCP server, testing requires:
 
 ### Adding a New Tool
 
-1. Create Pydantic input model (lines 93-200 section)
+1. Create Pydantic input model in the Input Validation Models section
 2. Add tool function with `@mcp.tool()` decorator
 3. Include comprehensive docstring (used by AI to understand tool)
 4. Set appropriate annotations (`readOnlyHint`, `destructiveHint`, etc.)
@@ -389,11 +412,11 @@ Since this is an MCP server, testing requires:
 
 ### Modifying Command Execution
 
-The core execution logic is in `SSHConnectionManager.execute_command()` (lines 249-271). Changes here affect all tools.
+The core execution logic is in `SSHConnectionManager.execute_command()` method. Changes here affect all tools.
 
 ### Adjusting Output Format
 
-Output formatting is handled by `format_exec_output()` (lines 308-327). This function supports both JSON and text formats.
+Output formatting is handled by `format_exec_output()` function. This function supports both JSON and text formats.
 
 ### Handling Long Outputs
 

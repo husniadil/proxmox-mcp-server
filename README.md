@@ -104,7 +104,7 @@ git clone https://github.com/husniadil/proxmox-mcp-server.git
 cd proxmox-mcp-server
 
 # Install dependencies
-pip install mcp fastmcp paramiko pydantic
+pip install mcp fastmcp paramiko pydantic python-dotenv uvicorn
 
 # Configure your Proxmox connection
 cp .env.example .env
