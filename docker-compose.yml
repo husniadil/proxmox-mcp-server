@@ -68,13 +68,14 @@ services:
     #       cpus: '0.5'
     #       memory: 256M
 
-    # Health check
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
+    # Health check (disabled by default for better compatibility)
+    # Uncomment to enable Docker Compose healthcheck monitoring
+    # healthcheck:
+    #   test: ["CMD", "sh", "-c", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:${SERVER_PORT:-8000}/health')\""]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 3
+    #   start_period: 10s
 
 # Docker secrets (optional - for production)
 # secrets:
