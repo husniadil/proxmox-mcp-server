@@ -714,7 +714,7 @@ mcp = FastMCP("proxmox_mcp", lifespan=lifespan)
 
 
 @mcp.tool(
-    name="proxmox_exec_command",
+    name="proxmox_container_exec_command",
     annotations={
         "title": "Execute Bash Command in Proxmox Container",
         "readOnlyHint": False,
@@ -723,7 +723,7 @@ mcp = FastMCP("proxmox_mcp", lifespan=lifespan)
         "openWorldHint": True,
     },
 )
-async def proxmox_exec_command(
+async def proxmox_container_exec_command(
     vmid: int, command: str, timeout: int = 30, response_format: str = "text"
 ) -> str:
     """Execute a bash command inside a Proxmox LXC container.
@@ -1017,7 +1017,7 @@ async def proxmox_start_container(vmid: int) -> str:
     annotations={
         "title": "Stop Proxmox Container",
         "readOnlyHint": False,
-        "destructiveHint": False,
+        "destructiveHint": True,  # Stops services and causes downtime
         "idempotentHint": True,
         "openWorldHint": True,
     },
@@ -1075,7 +1075,7 @@ async def proxmox_stop_container(vmid: int) -> str:
 @mcp.tool(
     name="proxmox_host_exec_command",
     annotations={
-        "title": "Execute Command on Proxmox Host",
+        "title": "Execute Bash Command on Proxmox Host",
         "readOnlyHint": False,
         "destructiveHint": True,  # CRITICAL: This can affect entire infrastructure
         "idempotentHint": False,
@@ -1091,7 +1091,7 @@ async def proxmox_host_exec_command(
     with root privileges. This can affect ALL containers/VMs and the host itself.
     Use with EXTREME caution!
 
-    Unlike 'proxmox_exec_command' which runs inside a specific container, this
+    Unlike 'proxmox_container_exec_command' which runs inside a specific container, this
     tool runs commands directly on the Proxmox host system. This gives you full
     access to the hypervisor and all its resources.
 

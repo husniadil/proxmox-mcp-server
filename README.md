@@ -288,7 +288,7 @@ The server provides 10 tools that Claude can use:
 
 ### Container Tools
 
-1. **proxmox_exec_command** - Execute any bash command in a container
+1. **proxmox_container_exec_command** - Execute any bash command in a container
 2. **proxmox_list_containers** - List all containers with their status
 3. **proxmox_container_status** - Check if a container is running or stopped
 4. **proxmox_start_container** - Start a stopped container
@@ -520,7 +520,7 @@ After enabling, restart Claude Desktop.
 - ✅ Proxmox services: `systemctl status pveproxy`
 - ✅ Network diagnostics on the host
 
-**Use Container Exec (`proxmox_exec_command`) for:**
+**Use Container Exec (`proxmox_container_exec_command`) for:**
 
 - ✅ Running commands inside a specific container
 - ✅ Installing software in a container

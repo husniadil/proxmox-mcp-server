@@ -83,7 +83,7 @@ The SSH connection is established during server lifecycle (`lifespan` context ma
 
 ### MCP Tools (10 Total)
 
-1. **proxmox_exec_command** (lines 394-483)
+1. **proxmox_container_exec_command** (lines 394-483)
    - Executes bash commands inside containers via `pct exec <vmid> -- bash -c '<command>'`
    - Handles command escaping for single quotes
    - Returns output in JSON or text format
@@ -254,7 +254,7 @@ escaped_command = command.replace("'", "'\\''")
 pct_command = f"pct exec {vmid} -- bash -c '{escaped_command}'"
 ```
 
-See line 457 in `proxmox_exec_command`.
+See line 457 in `proxmox_container_exec_command`.
 
 ### SSH Connection Lifecycle
 

@@ -133,12 +133,13 @@ async def tool_name(params: InputModel) -> str:
 - Multiple Proxmox host support
 - Advanced monitoring features
 - Snapshot management
-- File upload/download capabilities
+- Backup/restore operations
+- Network configuration management
+- Storage pool management
 
 ## Questions?
 
-- Open a [Discussion](https://github.com/husniadil/proxmox-mcp-server/discussions)
-- Ask in [Issues](https://github.com/husniadil/proxmox-mcp-server/issues)
+- Open an [Issue](https://github.com/husniadil/proxmox-mcp-server/issues) for questions or discussions
 
 ## License
 
