@@ -40,9 +40,9 @@ services:
     #   - CHARACTER_LIMIT=25000
     #   - MAX_FILE_SIZE=10485760
 
-    # Load from .env file (recommended for development)
+    # Load from stack.env file (for Docker deployment)
     env_file:
-      - .env
+      - stack.env
 
     # Optional: Use Docker secrets for production
     # secrets:
