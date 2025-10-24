@@ -69,6 +69,8 @@ class ProxmoxConfig:
         )
         # Maximum file size for transfers in bytes (default: 10MB)
         self.max_file_size = int(os.getenv("MAX_FILE_SIZE", "10485760"))
+        # HTTP server port (default: 8000)
+        self.server_port = int(os.getenv("SERVER_PORT", "8000"))
 
     def validate(self) -> Tuple[bool, Optional[str]]:
         """Validate configuration"""
@@ -1896,10 +1898,13 @@ async def health_check_middleware(scope, receive, send):
 if __name__ == "__main__":
     import sys
 
+    # Load configuration early to access SERVER_PORT
+    config = ProxmoxConfig()
+
     # Check for HTTP/SSE mode flag (HTTP is recommended in FastMCP 2.x)
     if "--http" in sys.argv or "--sse" in sys.argv:
-        # Extract port from command line or use default
-        port = 8000
+        # Extract port from command line or use default from config
+        port = config.server_port
         host = "0.0.0.0"  # Listen on all interfaces for Docker
 
         for i, arg in enumerate(sys.argv):

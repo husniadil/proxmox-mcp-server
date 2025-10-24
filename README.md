@@ -193,6 +193,7 @@ environment:
   - ENABLE_HOST_EXEC=false
   - CHARACTER_LIMIT=25000
   - MAX_FILE_SIZE=10485760
+  - SERVER_PORT=8000
 ```
 
 **Using Docker Secrets (Production):**
@@ -209,16 +210,24 @@ echo "your_password" > ./secrets/ssh_password.txt
 
 **Custom Port:**
 
-To use a different port:
+To use a different port, set the `SERVER_PORT` environment variable:
 
 ```bash
-# Using Docker
-docker run -d -p 9000:8000 --env-file .env proxmox-mcp-server
+# Option 1: Using environment variable (recommended)
+# In your .env or stack.env file:
+SERVER_PORT=9000
 
-# Using Docker Compose (modify docker-compose.yml)
-ports:
-  - "9000:8000"
+# The docker-compose.yml will automatically use this port
+docker-compose up -d
+
+# Option 2: Using Docker directly
+docker run -d -p 9000:9000 -e SERVER_PORT=9000 --env-file .env proxmox-mcp-server
+
+# Option 3: Command line argument (overrides env var)
+docker run -d -p 9000:9000 --env-file .env proxmox-mcp-server --http --port 9000
 ```
+
+**Note:** When changing `SERVER_PORT`, make sure to update both the host and container port in the Docker port mapping to match.
 
 **Health Check:**
 

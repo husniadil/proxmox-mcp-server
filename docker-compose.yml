@@ -24,9 +24,10 @@ services:
     # ========================================================================
 
     # Port mapping - SECURITY: Bind to localhost only for safety
+    # Uses SERVER_PORT environment variable (default: 8000)
     ports:
-      - "127.0.0.1:8000:8000"  # Localhost only (recommended)
-      # - "8000:8000"           # WARNING: Exposes to all interfaces (UNSAFE)
+      - "127.0.0.1:${SERVER_PORT:-8000}:${SERVER_PORT:-8000}"  # Localhost only (recommended)
+      # - "${SERVER_PORT:-8000}:${SERVER_PORT:-8000}"           # WARNING: Exposes to all interfaces (UNSAFE)
 
     # Environment variables (alternative to .env file)
     # Uncomment and configure if not using .env file
@@ -39,6 +40,7 @@ services:
     #   - ENABLE_HOST_EXEC=false
     #   - CHARACTER_LIMIT=25000
     #   - MAX_FILE_SIZE=10485760
+    #   - SERVER_PORT=8000
 
     # Load from stack.env file (for Docker deployment)
     env_file:

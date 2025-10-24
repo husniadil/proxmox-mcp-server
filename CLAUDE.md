@@ -85,7 +85,8 @@ The SSH connection is established during server lifecycle (`lifespan` context ma
 - Validates required fields (`HOST`, authentication credentials)
 - Enforces risk acceptance check (`I_ACCEPT_RISKS=true`)
 - Feature flags: `ENABLE_HOST_EXEC` (default: false), `CHARACTER_LIMIT` (default: 25000)
-- Max file size configuration via `MAX_FILE_SIZE` environment variable
+- Max file size configuration via `MAX_FILE_SIZE` environment variable (default: 10MB)
+- HTTP server port via `SERVER_PORT` environment variable (default: 8000)
 
 **SSH Connection Manager (`SSHConnectionManager`)**
 
@@ -329,12 +330,14 @@ File transfers use a two-step process for containers (via temporary staging on h
 
 ```python
 self.max_file_size = int(os.getenv("MAX_FILE_SIZE", "10485760"))  # 10MB
+self.server_port = int(os.getenv("SERVER_PORT", "8000"))  # 8000
 ```
 
-**Environment Variable:**
+**Environment Variables:**
 
 ```bash
 MAX_FILE_SIZE=10485760  # 10 MB (default)
+SERVER_PORT=8000        # 8000 (default) - HTTP server port for Docker/HTTP mode
 ```
 
 ## Important Implementation Details
