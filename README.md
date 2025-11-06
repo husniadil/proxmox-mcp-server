@@ -1,5 +1,11 @@
 # Proxmox MCP Server
 
+> **⚠️ REPOSITORY MOVED**
+> 
+> This repository has been moved to: **[husniadil/mcp-remote-exec](https://github.com/husniadil/mcp-remote-exec)**
+> 
+> Please use the new repository for the latest updates and features.
+
 Control your Proxmox LXC containers directly from Claude AI using natural language.
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
